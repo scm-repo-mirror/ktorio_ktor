@@ -11,22 +11,18 @@ import io.ktor.server.auth.AuthenticationProvider
 import io.ktor.server.auth.DigestAuthenticationProvider
 import io.ktor.server.auth.jwt.JWTAuthenticationProvider
 
-internal actual fun Application.inferPlatformSpecificSecurityScheme(
-    provider: AuthenticationProvider,
-    includeJwt: Boolean
-): SecurityScheme? {
+internal actual fun Application.inferPlatformSpecificSecurityScheme(provider: AuthenticationProvider): SecurityScheme? {
     return when {
         provider is DigestAuthenticationProvider -> HttpSecurityScheme(
             scheme = "digest",
             description = provider.description ?: HttpSecurityScheme.DEFAULT_DIGEST_DESCRIPTION
         )
-        includeJwt -> tryInferJwt(provider)
-
-        else -> null
+        // Catch an exception thrown when the auth-jwt plugin is not installed
+        else -> runCatching { inferJwtScheme(provider) }.getOrElse { null }
     }
 }
 
-internal fun tryInferJwt(provider: AuthenticationProvider): SecurityScheme? {
+private fun inferJwtScheme(provider: AuthenticationProvider): SecurityScheme? {
     if (provider !is JWTAuthenticationProvider) {
         return null
     }
